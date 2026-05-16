@@ -15,6 +15,8 @@ class AgentConfig(BaseModel):
     temperature: float = 0.7
     custom_tools_path: Path | None = None
     tools_enabled: bool = True
+    skills_enabled: bool = True
+    custom_skills_path: Path | None = None
 
     def model_post_init(self, _) -> None:
         if self.api_key is None:
