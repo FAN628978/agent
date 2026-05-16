@@ -1,5 +1,4 @@
 import json
-import re
 from pathlib import Path
 
 from .config import AgentConfig
@@ -18,9 +17,9 @@ class Agent:
     ):
         self.config = config
         self.tools_enabled = tools_enabled
-        self.skills_enabled = skills_enabled
+        self.skills_enabled = skills_enabled or getattr(config, "skills_enabled", True)
         self.messages: list[Message] = []
-        self._active_skills: set[str] = set()  # 当前对话中已激活的 skill
+        self._active_skills: set[str] = set()
 
         if tools_enabled:
             self.tool_loader = ToolLoader()
@@ -30,10 +29,10 @@ class Agent:
         else:
             self.tool_loader = None
 
-        if skills_enabled:
+        if self.skills_enabled:
             from src.skills import SkillLoader
             self.skill_loader = SkillLoader()
-            self.skill_loader.load_all(
+            self.skill_loader.load(
                 custom_skills_path if custom_skills_path is not None else config.custom_skills_path
             )
         else:

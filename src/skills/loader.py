@@ -5,7 +5,7 @@ from .types import Skill
 
 
 class SkillLoader:
-    """技能加载器，支持按需加载"""
+    """技能加载器，扫描 skills/ 目录加载 SKILL.md 定义的技能"""
 
     def __init__(self):
         self._skills: dict[str, Skill] = {}
@@ -13,13 +13,12 @@ class SkillLoader:
 
     def _load_frontmatter(self, skill_dir: Path) -> dict | None:
         """只解析 frontmatter，不加载完整内容"""
-        readme = skill_dir / "README.md"
-        if not readme.exists():
+        skill_file = skill_dir / "SKILL.md"
+        if not skill_file.exists():
             return None
 
-        text = readme.read_text(encoding="utf-8")
+        text = skill_file.read_text(encoding="utf-8")
 
-        # 解析 frontmatter --- ... ---
         if text.startswith("---"):
             end = text.find("\n---", 3)
             if end != -1:
@@ -29,7 +28,6 @@ class SkillLoader:
         return None
 
     def _parse_frontmatter(self, fm_text: str) -> dict:
-        """解析 YAML-like frontmatter"""
         meta = {}
         meta["name"] = self._fm_get(fm_text, "name")
         meta["description"] = self._fm_get(fm_text, "description")
@@ -54,9 +52,6 @@ class SkillLoader:
             if s.startswith("- "):
                 result.append(s[2:])
             elif s and not s.startswith("-") and not s.startswith("#"):
-                # 遇到非列表行（空行或其他 key），停止
-                if not result and s.startswith(key):
-                    continue
                 break
         return result
 
@@ -67,7 +62,7 @@ class SkillLoader:
             return skills
 
         for item in directory.iterdir():
-            if item.is_dir() and (item / "README.md").exists():
+            if item.is_dir() and (item / "SKILL.md").exists():
                 meta = self._load_frontmatter(item)
                 if meta and meta.get("name"):
                     skill = Skill(
@@ -81,45 +76,34 @@ class SkillLoader:
                     skills.append(skill)
         return skills
 
-    def load_builtin(self) -> dict[str, Skill]:
-        """加载内置技能（只解析 frontmatter）"""
-        builtin_path = Path(__file__).parent / "builtin"
+    def load(self, extra_path: Path | None = None) -> dict[str, Skill]:
+        """加载技能，扫描内置目录 + 可选自定义目录"""
+        skills_path = Path(__file__).parent
         self._skills.clear()
         self._dirs.clear()
 
-        for skill in self._scan_directory(builtin_path):
+        for skill in self._scan_directory(skills_path):
             self._skills[skill.name] = skill
 
-        return self._skills
-
-    def load_custom(self, custom_path: Path | None = None) -> dict[str, Skill]:
-        """加载自定义技能（只解析 frontmatter）"""
-        if custom_path is None:
-            custom_path = Path(__file__).parent / "custom"
-
-        for skill in self._scan_directory(custom_path):
-            self._skills[skill.name] = skill
+        if extra_path and extra_path.exists():
+            for skill in self._scan_directory(extra_path):
+                self._skills[skill.name] = skill
 
         return self._skills
 
     def load_all(self, custom_path: Path | None = None) -> dict[str, Skill]:
-        """加载所有技能（内置 + 自定义）"""
-        self.load_builtin()
-        self.load_custom(custom_path)
-        return self._skills
+        return self.load(custom_path)
 
     def get_skill(self, name: str) -> Skill | None:
         return self._skills.get(name)
 
     def list_skills(self) -> list[dict]:
-        """列出所有技能（名称 + 描述）"""
         return [
             {"name": s.name, "description": s.description, "version": s.version}
             for s in self._skills.values()
         ]
 
     def get_prompt_parts(self) -> list[str]:
-        """获取技能列表摘要（用于初始 prompt）"""
         parts = []
         for skill in self._skills.values():
             trigger_str = ", ".join(skill.triggers) if skill.triggers else skill.name
@@ -130,7 +114,7 @@ class SkillLoader:
         return parts
 
     def get_skill_prompt(self, name: str) -> str | None:
-        """按需加载：获取技能的完整内容（含引用的文件）"""
+        """按需加载：读取 SKILL.md + reference.md + examples.md"""
         skill = self._skills.get(name)
         if not skill:
             return None
@@ -141,17 +125,14 @@ class SkillLoader:
 
         parts = []
 
-        # 读取 README.md 完整内容
-        readme = skill_dir / "README.md"
-        if readme.exists():
-            parts.append(readme.read_text(encoding="utf-8"))
+        skill_file = skill_dir / "SKILL.md"
+        if skill_file.exists():
+            parts.append(skill_file.read_text(encoding="utf-8"))
 
-        # 读取 reference.md（如果存在）
         ref = skill_dir / "reference.md"
         if ref.exists():
             parts.append("\n\n## 参考资料\n\n" + ref.read_text(encoding="utf-8"))
 
-        # 读取 examples.md（如果存在）
         ex = skill_dir / "examples.md"
         if ex.exists():
             parts.append("\n\n## 示例\n\n" + ex.read_text(encoding="utf-8"))
@@ -159,7 +140,6 @@ class SkillLoader:
         return "\n".join(parts)
 
     def get_skill_allowed_tools(self, name: str) -> list[str]:
-        """获取技能允许的工具列表"""
         skill = self._skills.get(name)
         return skill.allowed_tools if skill else []
 

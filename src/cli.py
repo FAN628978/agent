@@ -15,6 +15,7 @@ async def main():
     config = AgentConfig(
         system_prompt="你是一个有帮助的 AI 助手，可以调用工具来完成任务。",
         tools_enabled=True,
+        skills_enabled=True,
     )
     agent = Agent(config)
 
