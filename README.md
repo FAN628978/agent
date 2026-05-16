@@ -196,6 +196,7 @@ tool = MyTool()
 - [x] tool系统
 - [ ] memory系统
 - [x] skill系统
+- [ ] security系统
 - [ ] rag系统
 - [ ] context系统
 - [ ] slash系统
