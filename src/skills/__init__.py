@@ -1,5 +1,4 @@
-from .base import BaseSkill
+from .types import Skill
 from .loader import SkillLoader
-from .types import SkillState, SkillStatus, SkillContext
 
-__all__ = ["BaseSkill", "SkillLoader", "SkillState", "SkillStatus", "SkillContext"]
+__all__ = ["Skill", "SkillLoader"]

@@ -18,8 +18,11 @@ async def main():
     )
     agent = Agent(config)
 
-    tools = [t['function']['name'] for t in agent.available_tools]
-    print(f"Agent 已启动，可用工具/技能: {tools}")
+    tool_names = [t['function']['name'] for t in agent.available_tools]
+    skill_names = [s['name'] for s in agent.available_skills]
+    print(f"Agent 已启动，工具: {tool_names}")
+    if skill_names:
+        print(f"          技能: {skill_names}")
     print("输入 exit 退出\n")
 
     while True:
