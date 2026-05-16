@@ -1,0 +1,34 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from agent import Agent, AgentConfig
+
+
+async def main():
+    config = AgentConfig(
+        system_prompt="你是一个有帮助的 AI 助手，可以调用工具来完成任务。",
+        tools_enabled=True,
+    )
+    agent = Agent(config)
+
+    print(f"Agent 已启动，可用工具: {[t['function']['name'] for t in agent.available_tools]}")
+    print("输入 exit 退出\n")
+
+    while True:
+        user_input = input("> ")
+        if user_input.lower() == "exit":
+            break
+
+        response = await agent.run_with_tools(user_input)
+        print(f"\n{response}\n")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

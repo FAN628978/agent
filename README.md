@@ -1,0 +1,144 @@
+# Agent
+
+AI Agent 核心引擎，支持 OpenAI API / 兼容接口（vLLM、Ollama 等）。
+
+## 项目结构
+
+```
+src/
+├── agent/
+│   ├── types.py      # Message, ToolCall, ToolResult
+│   ├── config.py     # AgentConfig 配置
+│   ├── client.py     # OpenAI API 封装
+│   └── agent.py      # Agent 主类
+├── tools/            # 工具系统
+│   ├── base.py       # BaseTool 基类
+│   ├── loader.py     # ToolLoader 加载器
+│   ├── builtin/      # 内置工具
+│   │   └── calculator/
+│   └── custom/       # 用户自定义工具
+│       └── web_search/
+├── cli.py            # CLI 入口
+pyproject.toml
+.env.example
+```
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+uv sync
+```
+
+### 2. 配置环境变量
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入 API Key
+```
+
+```env
+OPENAI_API_KEY=sk-your-api-key-here
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+### 3. 运行
+
+```bash
+uv run python -m src.cli
+```
+
+## 工具系统
+
+### 目录结构
+
+```
+src/tools/
+├── base.py           # BaseTool 基类
+├── loader.py          # ToolLoader 加载器
+├── builtin/           # 系统内置工具
+│   ├── calculator/    # 计算器工具
+│   └── ...
+└── custom/            # 用户自定义工具
+    ├── web_search/    # 网页搜索工具
+    └── ...
+```
+
+### 使用工具
+
+```python
+from agent import Agent, AgentConfig
+
+config = AgentConfig(
+    system_prompt="你是一个有帮助的助手，可以调用工具完成任务。",
+    tools_enabled=True,           # 启用工具
+    custom_tools_path=None,       # 自定义工具目录（可选）
+)
+agent = Agent(config)
+
+# 查看可用工具
+print(agent.available_tools)
+
+# 运行对话（自动调用工具）
+response = await agent.run_with_tools("查询今天天气")
+```
+
+### 创建自定义工具
+
+在 `src/tools/custom/` 下创建工具目录：
+
+```
+src/tools/custom/my_tool/
+└── tool.py
+```
+
+示例：
+
+```python
+from src.tools.base import BaseTool
+
+class MyTool(BaseTool):
+    name = "my_tool"
+    description = "工具描述"
+
+    def execute(self, param1: str, param2: int = 10) -> str:
+        # 工具逻辑
+        return f"结果: {param1}, {param2}"
+
+tool = MyTool()
+```
+
+工具会自动被加载，无需额外配置。
+
+### 内置工具
+
+| 工具 | 说明 |
+|------|------|
+| calculator | 数学表达式计算 |
+
+### 自定义工具
+
+| 工具 | 说明 |
+|------|------|
+| web_search | 网页搜索（使用必应搜索） |
+
+## 配置选项
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| model | str | gpt-4o | 模型名称 |
+| api_key | str | 环境变量 | API Key |
+| base_url | str | 环境变量 | API 地址（支持 vLLM、Ollama 等） |
+| system_prompt | str | "" | 系统提示词 |
+| max_tokens | int | 4096 | 最大输出 token |
+| temperature | float | 1.0 | 采样温度 |
+| tools_enabled | bool | True | 是否启用工具 |
+| custom_tools_path | Path | None | 自定义工具目录 |
+
+## 路线图
+
+- [x] Agent 核心引擎
+- [x] 工具系统
+- [ ] 记忆系统
+- [ ] 技能系统
