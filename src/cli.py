@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-import platform
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -10,16 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agent import Agent, AgentConfig
-
-
-def _get_input(prompt_text: str) -> str:
-    """跨平台输入：Linux 用 prompt_toolkit，Windows/macOS 用标准 input"""
-    if platform.system() == "Linux":
-        from prompt_toolkit import PromptSession
-        session = PromptSession(prompt_text, erase_when_done=True)
-        return session.prompt()
-    else:
-        return input(prompt_text)
 
 
 async def main():
@@ -38,12 +27,7 @@ async def main():
     print("输入 exit 退出\n")
 
     while True:
-        try:
-            user_input = _get_input("> ")
-        except (KeyboardInterrupt, EOFError):
-            print()
-            continue
-
+        user_input = input("> ")
         if user_input.lower() == "exit":
             break
 
