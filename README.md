@@ -199,5 +199,5 @@ tool = MyTool()
 - [ ] security系统
 - [ ] rag系统
 - [ ] context系统
-- [ ] slash系统
+- [ ] command系统
 - [ ] mcp系统
