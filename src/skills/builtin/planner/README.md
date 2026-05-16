@@ -1,3 +1,19 @@
+---
+name: planner
+description: 任务规划与分解专家，将复杂目标拆解为可执行的步骤
+version: 1.0.0
+triggers:
+  - planner
+  - 制定计划
+  - 任务规划
+  - 规划任务
+  - make a plan
+  - 拆解任务
+allowed-tools:
+  - calculator
+  - web_search
+---
+
 # Planner
 
 ## 角色
