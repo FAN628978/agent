@@ -7,7 +7,7 @@ from src.tools.base import ParamSchema
 
 TOOL_DEFINITION = {
     "name": "read",
-    "description": "读取文件内容，支持指定行范围",
+    "description": "读取文件内容，支持指定行范围。当需要读取某个文件的具体内容时，优先使用此工具而非 bash 的 cat 命令。",
     "read_only": True,
     "concurrency_safe": True,
     "enabled": True,

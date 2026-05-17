@@ -47,9 +47,15 @@ class Agent:
             parts.append(self.config.system_prompt)
 
         if self.tool_loader:
-            names = self.tool_loader.get_names()
-            if names:
-                parts.append(f"\n\n## 可用工具\n{', '.join(names)}")
+            definitions = self.tool_loader.get_definitions()
+            if definitions:
+                tool_lines = []
+                for td in definitions:
+                    func = td["function"]
+                    name = func["name"]
+                    desc = func.get("description", "")
+                    tool_lines.append(f"- {name}: {desc}")
+                parts.append("\n\n## 可用工具（详细参数见工具定义）\n" + "\n".join(tool_lines))
 
         if self.skills_enabled and self.skill_loader:
             parts.append("\n\n## 可用技能")

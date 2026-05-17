@@ -1,7 +1,5 @@
-import subprocess
-from typing import Any
-
 from src.tools.base import ParamSchema
+from src.tools.bash.shell import execute as shell_execute
 
 
 TOOL_DEFINITION = {
@@ -19,13 +17,4 @@ TOOL_DEFINITION = {
 
 
 def execute(command: str, timeout: int = 30) -> str:
-    try:
-        result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=timeout
-        )
-        output = result.stdout if result.stdout else result.stderr
-        return output.strip() if output else "(空输出)"
-    except subprocess.TimeoutExpired:
-        return f"错误: 命令执行超时 ({timeout}s)"
-    except Exception as e:
-        return f"错误: {str(e)}"
+    return shell_execute(command, timeout)

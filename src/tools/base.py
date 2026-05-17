@@ -46,15 +46,24 @@ def terminal_checker(tool_name: str, params: dict, permission: str = "ask") -> b
         print(cmd_display, flush=True, file=sys.stderr)
         return True
 
-    # DENY: 拒绝执行
-    if permission == "deny":
-        print(f"{cmd_display} - 禁止执行", flush=True, file=sys.stderr)
-        return False
+    # 无交互终端时
+    if not sys.stdin.isatty():
+        # 只读工具自动批准
+        if tool_name in ("read", "glob", "grep"):
+            print(f"[自动批准] {cmd_display}", flush=True, file=sys.stderr)
+            return True
+        # 危险工具拒绝
+        print(f"[拒绝] {cmd_display}", flush=True, file=sys.stderr)
+        raise ToolExecutionRefused(f"工具 {tool_name} 需要用户批准后在交互终端执行")
 
-    # ASK: 显示交互式选择
+    # ASK: 显示交互式选择（有终端）
     import os
     if os.name == "nt":
         import msvcrt
+
+        if permission == "deny":
+            print(f"{cmd_display} - 禁止执行", flush=True, file=sys.stderr)
+            return False
 
         selected = [0]
         last_sel = [-1]
