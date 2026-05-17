@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agent import Agent, AgentConfig
+from src.tools.base import terminal_checker
 
 
 async def main():
@@ -17,10 +18,10 @@ async def main():
         tools_enabled=True,
         skills_enabled=True,
     )
-    agent = Agent(config)
+    agent = Agent(config, permission_checker=terminal_checker)
 
-    tool_names = [t['function']['name'] for t in agent.available_tools]
-    skill_names = [s['name'] for s in agent.available_skills]
+    tool_names = [t["function"]["name"] for t in agent.available_tools]
+    skill_names = [s["name"] for s in agent.available_skills]
     print(f"Agent 已启动，工具: {tool_names}")
     if skill_names:
         print(f"          技能: {skill_names}")
