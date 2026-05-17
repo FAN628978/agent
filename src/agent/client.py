@@ -1,10 +1,9 @@
-from typing import TYPE_CHECKING, Callable
+import json
+from typing import Callable
+
 from openai import AsyncOpenAI
 from .config import AgentConfig
-from .types import Message, ToolResult
-
-if TYPE_CHECKING:
-    from .types import ToolCall
+from .types import Message
 
 
 class OpenAIClient:
@@ -56,19 +55,23 @@ class OpenAIClient:
                 return message.content or ""
 
             for tool_call in message.tool_calls:
+                name = tool_call.function.name
+                args_str = tool_call.function.arguments
+                tc_id = tool_call.id or f"call_{id(tool_call)}"
+
+                args = json.loads(args_str) if isinstance(args_str, str) else args_str
                 result = tool_handler(tool_call)
+
                 request_messages.append({
                     "role": "assistant",
-                    "tool_calls": [
-                        {
-                            "id": tool_call.id,
-                            "type": "function",
-                            "function": {"name": tool_call.function.name, "arguments": tool_call.function.arguments},
-                        }
-                    ],
+                    "tool_calls": [{
+                        "id": tc_id,
+                        "type": "function",
+                        "function": {"name": name, "arguments": args_str},
+                    }],
                 })
                 request_messages.append({
                     "role": "tool",
-                    "tool_call_id": tool_call.id,
+                    "tool_call_id": tc_id,
                     "content": result,
                 })

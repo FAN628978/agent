@@ -5,6 +5,7 @@ from typing import Any
 from .config import AgentConfig
 from .types import Message
 from src.tools import ToolLoader
+from src.tools.base import ToolExecutionRefused
 
 
 class Agent:
@@ -41,18 +42,15 @@ class Agent:
             self.skill_loader = None
 
     def _build_system_prompt(self) -> str:
-        """构建完整的 system prompt"""
         parts = []
         if self.config.system_prompt:
             parts.append(self.config.system_prompt)
 
-        # 层一：工具名称轻量注入（节省 token）
         if self.tool_loader:
             names = self.tool_loader.get_names()
             if names:
                 parts.append(f"\n\n## 可用工具\n{', '.join(names)}")
 
-        # 技能列表
         if self.skills_enabled and self.skill_loader:
             parts.append("\n\n## 可用技能")
             parts.append("需要使用某项技能时，明确告知用户。")
@@ -82,7 +80,7 @@ class Agent:
             if any(p in text_lower for p in name_parts):
                 self._activate_skill(skill.name)
 
-    async def run_with_tools(self, user_input: str) -> str:
+    async def run_with_tools(self, user_input: str) -> str | None:
         from .client import OpenAIClient
 
         self.messages.append(Message(role="user", content=user_input))
@@ -93,17 +91,29 @@ class Agent:
 
         def handle_tool(tool_call) -> str:
             tool_name = tool_call.function.name
-            tool_args = json.loads(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else tool_call.function.arguments
-            return self.tool_loader.execute(tool_name, tool_args)
+            args_str = tool_call.function.arguments
+            if isinstance(args_str, str):
+                args_str = args_str or "{}"
+            try:
+                tool_args = json.loads(args_str)
+            except (json.JSONDecodeError, TypeError):
+                tool_args = {}
+            try:
+                result = self.tool_loader.execute(tool_name, tool_args)
+            except ToolExecutionRefused:
+                raise  # 向上传播，让 run_with_tools 捕获
+            return result
 
-        # 层二：完整工具定义按需传给模型
         tools = self.tool_loader.get_definitions() if self.tools_enabled else None
-        response = await client.chat_with_tools(
-            messages=self.messages,
-            system_prompt=system_prompt,
-            tools=tools,
-            tool_handler=handle_tool,
-        )
+        try:
+            response = await client.chat_with_tools(
+                messages=self.messages,
+                system_prompt=system_prompt,
+                tools=tools,
+                tool_handler=handle_tool,
+            )
+        except ToolExecutionRefused:
+            return None  # 用户拒绝执行，返回 None 表示需要重新输入
 
         self.messages.append(Message(role="assistant", content=response))
         self._check_skill_triggers(response)

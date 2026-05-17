@@ -2,41 +2,142 @@ from enum import Enum
 from typing import Any
 
 
+class ToolExecutionRefused(Exception):
+    """工具执行被拒绝时抛出"""
+    pass
+
+
 class Permission(str, Enum):
-    ALLOW = "allow"   # 直接执行
-    ASK = "ask"       # 执行前需批准
-    DENY = "deny"     # 禁止执行
+    ALLOW = "allow"
+    ASK = "ask"
+    DENY = "deny"
 
 
-def terminal_checker(tool_name: str, params: dict[str, Any]) -> bool:
-    """终端交互式权限检查器，显示命令并等待用户批准"""
+def terminal_checker(tool_name: str, params: dict, permission: str = "ask") -> bool:
+    """根据权限决定是否需要用户批准"""
     import sys
 
-    params_display = ", ".join(
-        f"{k}={repr(v)[:50]}{'...' if len(repr(v)) > 50 else ''}"
-        for k, v in params.items()
-    )
-    print(f"\n[批准?] 工具: {tool_name}", file=sys.stderr)
-    print(f"         参数: {params_display}", file=sys.stderr)
+    # 获取简要命令展示
+    if tool_name == "bash" and "command" in params:
+        cmd = params["command"]
+        if len(cmd) > 60:
+            cmd = cmd[:57] + "..."
+        cmd_display = f'{tool_name}("{cmd}")'
+    elif tool_name == "read" and "file_path" in params:
+        cmd_display = f'{tool_name}("{params["file_path"]}")'
+    elif tool_name == "write" and "file_path" in params:
+        cmd_display = f'{tool_name}("{params["file_path"]}")'
+    elif tool_name == "edit" and "file_path" in params:
+        cmd_display = f'{tool_name}("{params["file_path"]}")'
+    elif tool_name == "glob" and "pattern" in params:
+        cmd_display = f'{tool_name}("{params["pattern"]}")'
+    elif tool_name == "grep" and "pattern" in params:
+        cmd_display = f'{tool_name}("{params["pattern"]}")'
+    else:
+        first_val = next(iter(params.values()), "")
+        if isinstance(first_val, str):
+            val = first_val[:60] + "..." if len(first_val) > 60 else first_val
+            cmd_display = f'{tool_name}("{val}")'
+        else:
+            cmd_display = tool_name
 
-    while True:
-        print("> 批准 (y) / 拒绝 (n) / 全部批准 (a) / 全部拒绝 (d)? ", end="", file=sys.stderr)
-        sys.stderr.flush()
+    # ALLOW: 直接显示并执行
+    if permission == "allow":
+        print(cmd_display, flush=True, file=sys.stderr)
+        return True
+
+    # DENY: 拒绝执行
+    if permission == "deny":
+        print(f"{cmd_display} - 禁止执行", flush=True, file=sys.stderr)
+        return False
+
+    # ASK: 显示交互式选择
+    import os
+    if os.name == "nt":
+        import msvcrt
+
+        selected = [0]
+        last_sel = [-1]
+
+        def draw():
+            print(f"\r{cmd_display}", end="", flush=True, file=sys.stderr)
+            if selected[0] == 0:
+                print("  \033[92m[Yes]\033[0m  [No]  (↑↓ 切换, Enter 确认)", end="", flush=True, file=sys.stderr)
+            else:
+                print("  [Yes]  \033[91m[No]\033[0m  (↑↓ 切换, Enter 确认)", end="", flush=True, file=sys.stderr)
+
+        draw()
+
+        while True:
+            if msvcrt.kbhit():
+                ch = msvcrt.getch()
+                if ch == b"\r" or ch == b"\n":
+                    print(flush=True, file=sys.stderr)
+                    return selected[0] == 0
+                if ch in (b"\x00", b"\xe0"):
+                    key = msvcrt.getch()
+                    if key == b"H":
+                        selected[0] = 0
+                    elif key == b"P":
+                        selected[0] = 1
+                    if selected[0] != last_sel[0]:
+                        last_sel[0] = selected[0]
+                        draw()
+                elif ch in (b"y", b"Y"):
+                    print(flush=True, file=sys.stderr)
+                    return True
+                elif ch in (b"n", b"N"):
+                    print(flush=True, file=sys.stderr)
+                    return False
+            else:
+                import time
+                time.sleep(0.05)
+
+    else:
+        import select
+        import tty
+        import termios
+
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        tty.setcbreak(fd)
         try:
-            line = input().strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print("已拒绝（Ctrl+C）", file=sys.stderr)
-            return False
+            selected = [0]
+            last_sel = [-1]
 
-        if line in ("y", "yes"):
-            return True
-        if line in ("n", "no"):
-            return False
-        if line == "a":
-            return True
-        if line == "d":
-            return False
-        print("  请输入 y / n / a / d", file=sys.stderr)
+            def draw():
+                print(f"\r{cmd_display}", end="", flush=True, file=sys.stderr)
+                if selected[0] == 0:
+                    print("  \033[92m[Yes]\033[0m  [No]  (↑↓ 切换, Enter 确认)", end="", flush=True, file=sys.stderr)
+                else:
+                    print("  [Yes]  \033[91m[No]\033[0m  (↑↓ 切换, Enter 确认)", end="", flush=True, file=sys.stderr)
+
+            draw()
+
+            while True:
+                ready, _, _ = select.select([sys.stdin], [], [], 0.05)
+                if ready:
+                    ch = sys.stdin.read(1)
+                    if ch in ("\n", ""):
+                        print(flush=True, file=sys.stderr)
+                        return selected[0] == 0
+                    elif ch == "\x1b":
+                        nxt = sys.stdin.read(2)
+                        if nxt == "[A":
+                            selected[0] = 0
+                        elif nxt == "[B":
+                            selected[0] = 1
+                        if selected[0] != last_sel[0]:
+                            last_sel[0] = selected[0]
+                            draw()
+                    elif ch in ("y", "Y"):
+                        print(flush=True, file=sys.stderr)
+                        return True
+                    elif ch in ("n", "N"):
+                        print(flush=True, file=sys.stderr)
+                        return False
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
 class ParamSchema:

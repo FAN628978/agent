@@ -2,7 +2,7 @@ import importlib.util
 from pathlib import Path
 from typing import Any
 
-from src.tools.base import Permission, validate
+from src.tools.base import Permission, ToolExecutionRefused, validate
 
 
 class ToolLoader:
@@ -91,23 +91,23 @@ class ToolLoader:
         if not meta:
             return False, f"工具 {name} 未加载"
 
-        permission = Permission(meta.get("permission", Permission.ASK))
-
-        if permission == Permission.DENY:
+        permission = meta.get("permission", "ask")
+        if permission == "deny":
             return False, f"工具 {name} 被禁止执行"
 
-        if permission == Permission.ALLOW:
+        if permission == "allow":
             return True, None
 
-        # ASK: 交给外部检查器
+        # ask: 交给外部检查器，显示交互界面
         if self._permission_checker:
             try:
-                granted = self._permission_checker(name, params)
+                granted = self._permission_checker(name, params, permission)
                 if granted is True:
                     return True, None
                 if granted is False:
-                    return False, f"工具 {name} 执行被拒绝（需用户批准）"
-                # None 表示未决定，继续提示
+                    raise ToolExecutionRefused(f"工具 {name} 执行被拒绝（用户选择 No）")
+            except ToolExecutionRefused:
+                raise  # 向上传播
             except Exception as e:
                 return False, f"权限检查出错: {e}"
 
@@ -117,7 +117,8 @@ class ToolLoader:
         """延迟加载并执行工具"""
         ok, reason = self._check_permission(name, params)
         if not ok:
-            return reason or f"工具 {name} 执行被拒绝"
+            # 抛出异常让 Agent 停止
+            raise ToolExecutionRefused(reason or f"工具 {name} 执行被拒绝")
 
         ok, err = validate(params, self._metadata[name]["params"])
         if not ok:

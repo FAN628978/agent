@@ -14,11 +14,14 @@ from src.tools.base import terminal_checker
 
 async def main():
     config = AgentConfig(
-        system_prompt="你是一个有帮助的 AI 助手，可以调用工具来完成任务。",
+        system_prompt_path=Path(__file__).parent / "SYSTEM_PROMPT.md",
         tools_enabled=True,
         skills_enabled=True,
     )
-    agent = Agent(config, permission_checker=terminal_checker)
+    agent = Agent(
+        config,
+        permission_checker=terminal_checker,
+    )
 
     tool_names = [t["function"]["name"] for t in agent.available_tools]
     skill_names = [s["name"] for s in agent.available_skills]
@@ -33,6 +36,9 @@ async def main():
             break
 
         response = await agent.run_with_tools(user_input)
+        # None 表示用户拒绝执行工具，回到输入循环
+        if response is None:
+            continue
         print(f"\n{response}\n")
 
 
